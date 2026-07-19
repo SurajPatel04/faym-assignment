@@ -1,18 +1,26 @@
-import express from 'express';
+import express from "express";
+import cors from "cors";
 import { errorHandler } from "./middlewares/error.middleware.js";
 
 const app = express();
+
+app.use(cors());
 app.use(express.json());
 
+const API_PREFIX = "/api";
 
-const API_PREFIX = '/api/recruiter';
+// Health check
+app.get("/health", (_req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
 
+// TODO: Mount route modules here
+// app.use(`${API_PREFIX}/users`, userRoutes);
+// app.use(`${API_PREFIX}/sales`, saleRoutes);
+// app.use(`${API_PREFIX}/withdrawals`, withdrawalRoutes);
 
-app.use((req, res, next) => {
-    logWarn("Route Not Found", req, {
-        context: "ROUTE_NOT_FOUND",
-    });
-
+// ─── 404 Catch-all ───────────────────────────────────────
+app.use((req, _res, next) => {
     const err = new Error(`Route not found: ${req.method} ${req.originalUrl}`);
     err.statusCode = 404;
     next(err);

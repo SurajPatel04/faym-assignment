@@ -1,8 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -10,4 +8,142 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+enum Role {
+  USER
+  ADMIN
+}
+
+enum SaleStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum TransactionType {
+  ADVANCE
+  FINAL
+  ADJUSTMENT
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  REJECTED
+}
+
+enum WithdrawalStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  REJECTED
+}
+
+// ─── MODELS ──────────────────────────────────────────────
+
+model User {
+  id                  String   @id @default(cuid())
+  username            String   @unique
+  email               String   @unique
+  passwordHash        String
+
+  role                Role     @default(USER)
+
+  withdrawableBalance Float    @default(0)
+
+  lastWithdrawalAt    DateTime?
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  sales               Sale[]
+  withdrawals         Withdrawal[]
+  payoutTransactions  PayoutTransaction[]
+  refreshTokens       RefreshToken[]
+}
+
+model Sale {
+  id             String     @id @default(cuid())
+
+  userId         String
+  user           User       @relation(fields: [userId], references: [id])
+
+  brand          String
+
+  earning        Float
+
+  status         SaleStatus @default(PENDING)
+
+  advancePaid    Boolean    @default(false)
+  advanceAmount  Float      @default(0)
+
+  reconciledAt   DateTime?
+
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  payoutTransactions PayoutTransaction[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model PayoutTransaction {
+  id          String            @id @default(cuid())
+
+  userId      String
+  user        User              @relation(fields: [userId], references: [id])
+
+  saleId      String?
+  sale        Sale?             @relation(fields: [saleId], references: [id])
+
+  type        TransactionType
+
+  amount      Float
+
+  status      TransactionStatus @default(PENDING)
+
+  referenceId String?
+
+  createdAt   DateTime          @default(now())
+
+  @@index([userId])
+  @@index([saleId])
+}
+
+model Withdrawal {
+  id               String           @id @default(cuid())
+
+  userId           String
+  user             User             @relation(fields: [userId], references: [id])
+
+  amount           Float
+
+  status           WithdrawalStatus @default(PENDING)
+
+  gatewayReference String?
+
+  createdAt        DateTime         @default(now())
+
+  @@index([userId])
+}
+
+model RefreshToken {
+  id         String   @id @default(cuid())
+  token      String   @unique
+
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  deviceInfo String?
+  ipAddress  String?
+  expiresAt  DateTime
+  isRevoked  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
 }
