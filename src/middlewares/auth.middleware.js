@@ -1,8 +1,8 @@
 import jwt from "jsonwebtoken";
 import prisma from "../config/db.js";
 import { env } from "../config/env.js";
-import { ApiError } from "../utils/apiError.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
+import { ApiError } from "../utils/apiError.utils.js";
+import { asyncHandler } from "../utils/asyncHandler.utils.js";
 
 export const authenticate = asyncHandler(async (req, _res, next) => {
     let token;

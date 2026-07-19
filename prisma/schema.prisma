@@ -2,12 +2,12 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 enum Role {
   USER
@@ -53,7 +53,7 @@ model User {
 
   role                Role     @default(USER)
 
-  withdrawableBalance Float    @default(0)
+  withdrawableBalance Decimal  @default(0) @db.Decimal(10,2)
 
   lastWithdrawalAt    DateTime?
 
@@ -74,12 +74,12 @@ model Sale {
 
   brand          String
 
-  earning        Float
+  earning        Decimal    @db.Decimal(10,2)
 
   status         SaleStatus @default(PENDING)
 
   advancePaid    Boolean    @default(false)
-  advanceAmount  Float      @default(0)
+  advanceAmount  Decimal    @default(0) @db.Decimal(10,2)
 
   reconciledAt   DateTime?
 
@@ -89,7 +89,8 @@ model Sale {
   payoutTransactions PayoutTransaction[]
 
   @@index([userId])
-  @@index([status])
+  @@index([userId, status])
+  @@index([status, advancePaid])
 }
 
 model PayoutTransaction {
@@ -103,7 +104,7 @@ model PayoutTransaction {
 
   type        TransactionType
 
-  amount      Float
+  amount      Decimal           @db.Decimal(10,2)
 
   status      TransactionStatus @default(PENDING)
 
@@ -113,6 +114,7 @@ model PayoutTransaction {
 
   @@index([userId])
   @@index([saleId])
+  @@unique([saleId, type], name: "unique_advance_final")
 }
 
 model Withdrawal {
@@ -121,13 +123,16 @@ model Withdrawal {
   userId           String
   user             User             @relation(fields: [userId], references: [id])
 
-  amount           Float
+  amount           Decimal          @db.Decimal(10,2)
 
   status           WithdrawalStatus @default(PENDING)
 
   gatewayReference String?
+  gatewayResponse  Json?
+  processedAt      DateTime?
 
   createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
   @@index([userId])
 }
@@ -138,12 +143,11 @@ model RefreshToken {
 
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  createdAt  DateTime @default(now())
   deviceInfo String?
   ipAddress  String?
   expiresAt  DateTime
   isRevoked  Boolean  @default(false)
-  createdAt  DateTime @default(now())
 
   @@index([userId])
 }

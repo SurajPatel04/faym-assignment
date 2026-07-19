@@ -74,3 +74,59 @@ export const generateAuthTokens = async (user, req) => {
     const refreshToken = await generateRefreshTokenAndStore(user, req);
     return { accessToken, refreshToken };
 }
+
+export const refreshAuthTokens = async (refreshTokenString, req) => {
+    try {
+        const decoded = jwt.verify(refreshTokenString, env.refreshTokenSecret.secret);
+        const hashedToken = hashToken(refreshTokenString);
+
+        const tokenRecord = await prisma.refreshToken.findUnique({
+            where: { token: hashedToken },
+            include: { user: true },
+        });
+
+        if (!tokenRecord) {
+            throw new Error("Refresh token not found");
+        }
+
+        if (tokenRecord.isRevoked) {
+            await prisma.refreshToken.updateMany({
+                where: { userId: decoded.userId },
+                data: { isRevoked: true },
+            });
+            throw new Error("Compromised refresh token. All sessions revoked.");
+        }
+
+        if (new Date() > tokenRecord.expiresAt) {
+            throw new Error("Refresh token expired");
+        }
+
+        await prisma.refreshToken.update({
+            where: { id: tokenRecord.id },
+            data: { isRevoked: true },
+        });
+
+        return await generateAuthTokens(tokenRecord.user, req);
+    } catch (error) {
+        throw new Error(error.message || "Invalid refresh token");
+    }
+};
+
+export const logoutUser = async (refreshTokenString) => {
+    const hashedToken = hashToken(refreshTokenString);
+    await prisma.refreshToken.updateMany({
+        where: { token: hashedToken },
+        data: { isRevoked: true },
+    });
+};
+
+export const cleanupExpiredTokens = async () => {
+    return await prisma.refreshToken.deleteMany({
+        where: {
+            OR: [
+                { expiresAt: { lt: new Date() } },
+                { isRevoked: true },
+            ],
+        },
+    });
+};
